@@ -14,13 +14,10 @@ namespace NzbDrone.Common.Composition
         T Resolve<T>()
             where T : class;
         object Resolve(Type type);
-        void Register(Type serviceType, Type implementationType);
-        void Register<TService>(Func<IContainer, TService> factory)
-            where TService : class;
-        void RegisterSingleton(Type service, Type implementation);
         IEnumerable<T> ResolveAll<T>()
             where T : class;
-        void RegisterAllAsSingleton(Type registrationType, IEnumerable<Type> implementationList);
+        void AutoRegisterImplementations(Type registrationType);
+        void AutoRegisterPluginImplementations(Type registrationType, IEnumerable<Type> implementationList);
         bool IsTypeRegistered(Type type);
 
         IEnumerable<Type> GetImplementations(Type contractType);

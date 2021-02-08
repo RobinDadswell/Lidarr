@@ -24,6 +24,9 @@
     <LidarrProject Condition="$(MSBuildProjectName.StartsWith('Lidarr'))">true</LidarrProject>
     <LidarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceInstall'))">true</LidarrProject>
     <LidarrProject Condition="$(MSBuildProjectName.StartsWith('ServiceUninstall'))">true</LidarrProject>
+
+    <PluginProject>false</PluginProject>
+    <PluginProject Condition="$(MSBuildProjectName.StartsWith('Lidarr.Plugin'))">true</PluginProject>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -35,6 +38,7 @@
 
     <!-- Output to _output and _tests respectively -->
     <OutputPath Condition="'$(LidarrProject)'=='true'">$(LidarrRootDir)_output\</OutputPath>
+    <OutputPath Condition="'$(PluginProject)'=='true'">$(LidarrRootDir)_plugins\$(TargetFramework)\$(MSBuildProjectName)</OutputPath>
     <OutputPath Condition="'$(LidarrOutputType)'=='Test'">$(LidarrRootDir)_tests\</OutputPath>
     <OutputPath Condition="'$(LidarrOutputType)'=='Update'">$(LidarrRootDir)_output\Lidarr.Update\</OutputPath>
 
@@ -78,6 +82,7 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <AppendTargetFrameworkToOutputPath Condition="'$(PluginProject)'=='true'">false</AppendTargetFrameworkToOutputPath>
     <!-- For now keep the NzbDrone namespace -->
     <RootNamespace Condition="'$(LidarrProject)'=='true'">$(MSBuildProjectName.Replace('Lidarr','NzbDrone'))</RootNamespace>
   </PropertyGroup>

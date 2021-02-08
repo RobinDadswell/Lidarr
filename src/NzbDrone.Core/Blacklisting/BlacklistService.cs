@@ -37,7 +37,7 @@ namespace NzbDrone.Core.Blacklisting
         {
             var blacklistedByTitle = _blacklistRepository.BlacklistedByTitle(artistId, release.Title);
 
-            if (release.DownloadProtocol == DownloadProtocol.Torrent)
+            if (release.DownloadProtocol == nameof(TorrentDownloadProtocol))
             {
                 var torrentInfo = release as TorrentInfo;
 
@@ -48,7 +48,7 @@ namespace NzbDrone.Core.Blacklisting
 
                 if (torrentInfo.InfoHash.IsNullOrWhiteSpace())
                 {
-                    return blacklistedByTitle.Where(b => b.Protocol == DownloadProtocol.Torrent)
+                    return blacklistedByTitle.Where(b => b.Protocol == nameof(TorrentDownloadProtocol))
                                              .Any(b => SameTorrent(b, torrentInfo));
                 }
 
@@ -57,7 +57,7 @@ namespace NzbDrone.Core.Blacklisting
                 return blacklistedByTorrentInfohash.Any(b => SameTorrent(b, torrentInfo));
             }
 
-            return blacklistedByTitle.Where(b => b.Protocol == DownloadProtocol.Usenet)
+            return blacklistedByTitle.Where(b => b.Protocol == nameof(UsenetDownloadProtocol))
                                      .Any(b => SameNzb(b, release));
         }
 
@@ -153,7 +153,7 @@ namespace NzbDrone.Core.Blacklisting
                 PublishedDate = DateTime.Parse(message.Data.GetValueOrDefault("publishedDate")),
                 Size = long.Parse(message.Data.GetValueOrDefault("size", "0")),
                 Indexer = message.Data.GetValueOrDefault("indexer"),
-                Protocol = (DownloadProtocol)Convert.ToInt32(message.Data.GetValueOrDefault("protocol")),
+                Protocol = message.Data.GetValueOrDefault("protocol"),
                 Message = message.Message,
                 TorrentInfoHash = message.Data.GetValueOrDefault("torrentInfoHash")
             };

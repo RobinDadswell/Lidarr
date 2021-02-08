@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -7,6 +8,7 @@ using NzbDrone.Common.Composition;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Exceptions;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation;
 using NzbDrone.Common.Processes;
 using NzbDrone.Core.Configuration;
@@ -37,6 +39,13 @@ namespace NzbDrone.Host
                 _container.Resolve<InitializeLogger>().Initialize();
                 _container.Resolve<IAppFolderFactory>().Register();
                 _container.Resolve<IProvidePidFile>().Write();
+
+                var pluginFolder = _container.Resolve<IAppFolderInfo>().GetPluginPath();
+                Logger.Info($"Looking for plugins in {pluginFolder}");
+                if (Directory.Exists(pluginFolder))
+                {
+                    MainAppContainerBuilder.LoadPlugins(_container, pluginFolder);
+                }
 
                 var appMode = GetApplicationMode(startupContext);
 

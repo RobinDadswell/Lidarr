@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using NzbDrone.Common.EnvironmentInfo;
@@ -7,7 +8,6 @@ using NzbDrone.Common.Messaging;
 using TinyIoC;
 
 #if NETCOREAPP
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 #endif
@@ -16,30 +16,25 @@ namespace NzbDrone.Common.Composition
 {
     public abstract class ContainerBuilderBase
     {
-        private readonly List<Type> _loadedTypes;
+        private readonly HashSet<Type> _loadedTypes;
 
         protected IContainer Container { get; }
 
         protected ContainerBuilderBase(IStartupContext args, List<string> assemblies)
         {
-            _loadedTypes = new List<Type>();
+            _loadedTypes = new HashSet<Type>();
 
             assemblies.Add(OsInfo.IsWindows ? "Lidarr.Windows" : "Lidarr.Mono");
             assemblies.Add("Lidarr.Common");
 
-#if !NETCOREAPP
-            foreach (var assembly in assemblies)
-            {
-                _loadedTypes.AddRange(Assembly.Load(assembly).GetTypes());
-            }
-#else
             var startupPath = AppDomain.CurrentDomain.BaseDirectory;
 
             foreach (var assemblyName in assemblies)
             {
-                _loadedTypes.AddRange(AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(startupPath, $"{assemblyName}.dll")).GetTypes());
+                _loadedTypes.UnionWith(GetAssemblyTypes(Path.Combine(startupPath, $"{assemblyName}.dll")));
             }
 
+#if NETCOREAPP
             AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(ContainerResolveEventHandler);
             RegisterSQLiteResolver();
 #endif
@@ -49,7 +44,12 @@ namespace NzbDrone.Common.Composition
             Container.Register(args);
         }
 
-#if  NETCOREAPP
+#if NETCOREAPP
+        protected static IEnumerable<Type> GetAssemblyTypes(string assemblyFile)
+        {
+            return AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyFile).GetTypes();
+        }
+
         private static Assembly ContainerResolveEventHandler(object sender, ResolveEventArgs args)
         {
             var resolver = new AssemblyDependencyResolver(args.RequestingAssembly.Location);
@@ -86,46 +86,38 @@ namespace NzbDrone.Common.Composition
             var mappedName = OsInfo.IsLinux && libraryName == "sqlite3" ? "libsqlite3.so.0" : libraryName;
             return NativeLibrary.Load(mappedName, assembly, dllImportSearchPath);
         }
+#else
+        protected static IEnumerable<Type> GetAssemblyTypes(string assemblyFile)
+        {
+            var asmName = AssemblyName.GetAssemblyName(assemblyFile);
+            return Assembly.Load(asmName).GetTypes();
+        }
 #endif
+
+        protected static IEnumerable<Type> GetAllContracts(IEnumerable<Type> types)
+        {
+            var loadedInterfaces = types.Where(t => t.IsInterface).ToList();
+            var implementedInterfaces = types.SelectMany(t => t.GetInterfaces());
+
+            return loadedInterfaces.Union(implementedInterfaces)
+                .Where(c => !c.IsGenericTypeDefinition && !string.IsNullOrWhiteSpace(c.FullName))
+                .Where(c => !c.FullName.StartsWith("System"))
+                .Except(new List<Type> { typeof(IMessage), typeof(IEvent), typeof(IContainer) })
+                .Distinct()
+                .OrderBy(c => c.FullName);
+        }
 
         private void AutoRegisterInterfaces()
         {
-            var loadedInterfaces = _loadedTypes.Where(t => t.IsInterface).ToList();
-            var implementedInterfaces = _loadedTypes.SelectMany(t => t.GetInterfaces());
-
-            var contracts = loadedInterfaces.Union(implementedInterfaces).Where(c => !c.IsGenericTypeDefinition && !string.IsNullOrWhiteSpace(c.FullName))
-                .Where(c => !c.FullName.StartsWith("System"))
-                .Except(new List<Type> { typeof(IMessage), typeof(IEvent), typeof(IContainer) }).Distinct().OrderBy(c => c.FullName);
-
-            foreach (var contract in contracts)
+            foreach (var contract in GetAllContracts(_loadedTypes))
             {
-                AutoRegisterImplementations(contract);
+                Container.AutoRegisterImplementations(contract);
             }
         }
 
         protected void AutoRegisterImplementations<TContract>()
         {
-            AutoRegisterImplementations(typeof(TContract));
-        }
-
-        private void AutoRegisterImplementations(Type contractType)
-        {
-            var implementations = Container.GetImplementations(contractType).Where(c => !c.IsGenericTypeDefinition).ToList();
-
-            if (implementations.Count == 0)
-            {
-                return;
-            }
-
-            if (implementations.Count == 1)
-            {
-                var impl = implementations.Single();
-                Container.RegisterSingleton(contractType, impl);
-            }
-            else
-            {
-                Container.RegisterAllAsSingleton(contractType, implementations);
-            }
+            Container.AutoRegisterImplementations(typeof(TContract));
         }
     }
 }

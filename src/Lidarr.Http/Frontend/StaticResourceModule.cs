@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Lidarr.Http.Frontend.Mappers;
 using Nancy;
 using NLog;
@@ -17,11 +18,11 @@ namespace Lidarr.Http.Frontend
             _requestMappers = requestMappers;
             _logger = logger;
 
-            Get("/{resource*}", x => Index());
-            Get("/", x => Index());
+            Get("/{resource*}", async (x, ct) => await Index().ConfigureAwait(false));
+            Get("/", async (x, ct) => await Index().ConfigureAwait(false));
         }
 
-        private Response Index()
+        private async Task<Response> Index()
         {
             var path = Request.Url.Path;
 
@@ -37,7 +38,7 @@ namespace Lidarr.Http.Frontend
 
             if (mapper != null)
             {
-                return mapper.GetResponse(path);
+                return await mapper.GetResponse(path).ConfigureAwait(false);
             }
 
             _logger.Warn("Couldn't find handler for {0}", path);

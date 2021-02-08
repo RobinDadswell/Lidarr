@@ -31,10 +31,20 @@ namespace NzbDrone.Host
 
         public static void LoadPlugins(IContainer container, string pluginFolder)
         {
-            foreach (var folder in Directory.GetDirectories(pluginFolder, "Lidarr.Plugin.*"))
+            foreach (var owner in Directory.GetDirectories(pluginFolder))
             {
-                var assemblyFile = Directory.GetFiles(folder, "Lidarr.Plugin.*.dll");
-                LoadPlugin(container, assemblyFile.Single());
+                foreach (var folder in Directory.GetDirectories(owner))
+                {
+                    var assemblyFile = Directory.GetFiles(folder, "Lidarr.Plugin.*.dll");
+                    try
+                    {
+                        LoadPlugin(container, assemblyFile.Single());
+                    }
+                    catch (InvalidDataException)
+                    {
+                        Logger.Error("Could not find dll for Plugin in {0}", folder);
+                    }
+                }
             }
         }
 

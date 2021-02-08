@@ -57,7 +57,7 @@ namespace NzbDrone.Core.Blacklisting
                 return blacklistedByTorrentInfohash.Any(b => SameTorrent(b, torrentInfo));
             }
 
-            return blacklistedByTitle.Where(b => b.Protocol == nameof(UsenetDownloadProtocol))
+            return blacklistedByTitle.Where(b => b.Protocol == release.DownloadProtocol)
                                      .Any(b => SameNzb(b, release));
         }
 
